@@ -1,0 +1,35 @@
+---
+- name: TP Ansible – Déploiement local sur Ubuntu
+  hosts: local
+  become: yes  # exécute avec sudo quand nécessaire
+
+  tasks:
+      - name: Mettre à jour la liste des paquets
+        apt:
+            update_cache: yes
+
+      - name: Installer Nginx
+        apt:
+            name: nginx
+            state: present
+
+      - name: Démarrer et activer le service Nginx
+        service:
+            name: nginx
+            state: started
+            enabled: yes
+
+      - name: Déployer une page d'accueil personnalisée
+        copy:
+            dest: /var/www/html/index.html
+            content: |
+                <html>
+                <head><title>TP Ansible</title></head>
+                <body>
+                  <h1>Bienvenue sur le serveur Nginx géré par Ansible 🚀</h1>
+                </body>
+                </html>
+
+      - name: Afficher un message de fin
+        debug:
+            msg: "Déploiement Ansible terminé avec succès sur {{ ansible_facts['distribution'] }}"
