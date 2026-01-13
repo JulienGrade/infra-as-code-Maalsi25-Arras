@@ -3,269 +3,260 @@
 <h2>Objectif</h2>
 <p>
 Découvrir l’Infrastructure as Code en utilisant OpenTofu pour créer et détruire automatiquement
-une infrastructure Docker locale : une image Nginx + un conteneur exposé sur un port.
+une infrastructure Docker locale : une image Nginx et un conteneur exposé sur un port.
 </p>
+
+<hr/>
+
+<h2>Sources utilisées</h2>
+<p>
+Les choix techniques de ce TP (provider, image Docker, ports, publication de ports, vérifications)
+sont basés sur les documentations officielles listées ci-dessous.
+</p>
+
+<h3>Références</h3>
+<ul>
+  <li><strong>[S1]</strong> Documentation OpenTofu : installation</li>
+  <li><strong>[S2]</strong> Terraform Registry : provider <code>kreuzwerker/docker</code></li>
+  <li><strong>[S3]</strong> Docker Hub : image officielle <code>nginx</code> (exemple de mapping <code>8080:80</code>)</li>
+  <li><strong>[S4]</strong> Documentation NGINX : exécuter NGINX avec Docker, mapping de port <code>-p</code> (port 80)</li>
+  <li><strong>[S5]</strong> Documentation Docker CLI : <code>docker context inspect</code> (endpoint Docker/Host)</li>
+  <li><strong>[S6]</strong> Documentation Docker CLI : <code>docker container port</code> (visualiser les ports publiés)</li>
+</ul>
+
+<p>Liens (copiables) :</p>
+<pre><code>[S1] https://opentofu.org/docs/intro/install/
+[S2] https://registry.terraform.io/providers/kreuzwerker/docker/latest/docs
+[S3] https://hub.docker.com/_/nginx
+[S4] https://docs.nginx.com/nginx/admin-guide/installing-nginx/installing-nginx-docker/
+[S5] https://docs.docker.com/reference/cli/docker/context/inspect/
+[S6] https://docs.docker.com/reference/cli/docker/container/port/
+</code></pre>
+
+<hr/>
 
 <h2>Étape 1 — Prérequis</h2>
 
 <h3>1.1 Docker doit fonctionner</h3>
-<code>docker ps</code>
 <p>
-Si tu vois une liste (même vide), c’est bon.<br/>
+Vérification :
 </p>
+<pre><code>docker ps</code></pre>
 
-<h4>Linux : correction “permission denied” (si nécessaire)</h4>
-<code>
-sudo usermod -aG docker $USER<br/>
-newgrp docker<br/>
-docker ps
-</code>
-
-<h4>Mac / Windows</h4>
 <p>
-Assure-toi que <strong>Docker Desktop</strong> est démarré (icône active) puis relance :
+Si la commande répond sans erreur (même avec une liste vide), Docker est opérationnel.
+Pour vérifier plus précisément les mappings de ports, la documentation Docker recommande également
+l’usage de <code>docker ps</code> et <code>docker container port</code> [S6].
 </p>
-<code>docker ps</code>
 
 <h3>1.2 OpenTofu doit être installé</h3>
-<p>Vérification :</p>
-<code>tofu version</code>
-
-<h3>Installation (Linux / Ubuntu)</h3>
-<p>Méthode recommandée : installation via le gestionnaire de paquets.</p>
-<code>
-sudo apt update<br/>
-sudo apt install -y opentofu
-</code>
-
-<h3>Installation (Mac)</h3>
-<p>Si Homebrew est installé :</p>
-<code>brew install opentofu</code>
-
-<h3>Installation (Windows)</h3>
-<p>Deux options simples :</p>
-<ul>
-  <li>Via <strong>Chocolatey</strong> (si installé) : <code>choco install opentofu</code></li>
-  <li>Via binaire : télécharger OpenTofu (GitHub Releases) et ajouter <code>tofu.exe</code> au PATH</li>
-</ul>
-
-<p>Validation attendue :</p>
-<ul>
-  <li><code>docker ps</code> fonctionne</li>
-  <li><code>tofu version</code> affiche une version</li>
-</ul>
-
-<hr/>
-
-<h2>Étape 2 — Créer le fichier principal main.tf (portable Mac / Windows / Linux)</h2>
 <p>
-Créer un dossier pour le TP puis un fichier <code>main.tf</code> contenant la configuration suivante.
+Vérification :
 </p>
-
-<code>
-terraform {<br/>
-&nbsp;&nbsp;required_providers {<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;docker = {<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;source  = "kreuzwerker/docker"<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;version = "~&gt; 3.0"<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
-&nbsp;&nbsp;}<br/>
-}<br/><br/>
-
-provider "docker" {}<br/>
-</code>
-
-<p>Pourquoi ce choix ?</p>
-<ul>
-  <li><code>kreuzwerker/docker</code> : provider Docker le plus utilisé</li>
-  <li>Version fixée (<code>~&gt; 3.0</code>) : reproductible</li>
-  <li><code>provider "docker" {}</code> : laisse Docker décider de la connexion selon l’OS (Mac/Windows/Linux)</li>
-</ul>
-
-<h3>Note (utile en cas de souci Docker Desktop)</h3>
-<p>
-Sur certaines configurations Mac/Windows, OpenTofu peut échouer à se connecter à Docker si l’hôte Docker n’est pas détecté automatiquement.
-Dans ce cas, définis un <strong>DOCKER_HOST</strong> avant de lancer <code>tofu plan</code>/<code>tofu apply</code>.
-</p>
-
-<h4>Mac (Docker Desktop)</h4>
-<code>
-export DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')" <br/>
-</code>
-
-<h4>Windows PowerShell (Docker Desktop)</h4>
-<code>
-$env:DOCKER_HOST = (docker context inspect --format '{{.Endpoints.docker.Host}}')<br/>
-</code>
-
-<h4>Windows CMD (Docker Desktop)</h4>
-<code>
-for /f "delims=" %i in ('docker context inspect --format "{{.Endpoints.docker.Host}}"') do set DOCKER_HOST=%i
-</code>
+<pre><code>tofu version</code></pre>
 
 <p>
-Ensuite relance <code>tofu plan</code> ou <code>tofu apply</code>.
+Les méthodes d’installation officielles (Linux, macOS, Windows) sont documentées dans la documentation OpenTofu [S1].
 </p>
 
 <hr/>
 
-<h2>Étape 3 — Initialiser le projet</h2>
-<p>Dans le dossier où se trouve <code>main.tf</code> :</p>
-<code>tofu init</code>
+<h2>Étape 2 — Créer le fichier main.tf</h2>
 
-<p>Ce que fait cette commande :</p>
-<ul>
-  <li>Lit ton <code>main.tf</code></li>
-  <li>Télécharge le provider Docker</li>
-  <li>Prépare l’environnement OpenTofu</li>
-</ul>
-
-<p>Validation attendue : la sortie contient quelque chose comme :</p>
-<code>
-Initializing the backend...<br/>
-Initializing provider plugins...<br/>
-- Finding kreuzwerker/docker versions matching "~&gt; 3.0"...<br/>
-- Installing kreuzwerker/docker v3.x.x...<br/>
-OpenTofu has been successfully initialized!
-</code>
-
-<p>Vérification :</p>
-<code>
-ls -a
-</code>
 <p>
-Tu dois voir un dossier <code>.terraform/</code> ou <code>.tofu/</code>.
+Créer un dossier pour le TP puis un fichier <code>main.tf</code>. Cette configuration utilise le provider Docker
+maintenu sur le Terraform Registry [S2].
+</p>
+
+<h3>2.1 Provider et versions</h3>
+<p>
+Le bloc <code>terraform</code> déclare le provider et sa contrainte de version. Cela rend le TP reproductible,
+car OpenTofu téléchargera une version compatible du provider Docker [S2].
+</p>
+
+<h3>2.2 Connexion au daemon Docker (macOS)</h3>
+<p>
+Le provider Docker communique avec le daemon via un endpoint (souvent un socket Unix).
+Sur macOS avec Docker Desktop, l’endpoint peut être obtenu via <code>docker context inspect</code>, qui expose la valeur
+du champ <code>Endpoints.docker.Host</code> [S5].
+</p>
+
+<p>
+Exemple pour afficher l’endpoint actuel :
+</p>
+<pre><code>docker context inspect --format '{{ .Endpoints.docker.Host }}'</code></pre>
+
+<p>
+Dans ce TP, le provider est configuré explicitement avec un socket Docker Desktop :
+</p>
+
+<pre><code>provider "docker" {
+  host = "unix:///Users/juliengrade/.docker/run/docker.sock"
+}</code></pre>
+
+<p>
+Cette valeur correspond à l’endpoint retourné par le contexte Docker (selon configuration locale) [S5].
 </p>
 
 <hr/>
 
-<h2>Étape 4 — Déclarer ce qu’on veut créer</h2>
-<p>Dans ce TP, on veut :</p>
-<ol>
-  <li>Tirer l’image Docker <code>nginx:latest</code></li>
-  <li>Lancer un conteneur depuis cette image</li>
-  <li>Publier le port 80 du conteneur sur le port 8080 de la machine</li>
-</ol>
+<h2>Étape 3 — Déclarer les ressources à créer</h2>
 
-<p>Ajoute dans <code>main.tf</code> (sous les blocs existants) :</p>
+<h3>3.1 Tirer l’image Nginx</h3>
+<p>
+On utilise l’image officielle <code>nginx:latest</code> telle que décrite sur Docker Hub [S3].
+</p>
 
-<code>
-resource "docker_image" "nginx" {<br/>
-&nbsp;&nbsp;name = "nginx:latest"<br/>
-}<br/><br/>
+<pre><code>resource "docker_image" "nginx" {
+  name = "nginx:latest"
+}</code></pre>
 
-resource "docker_container" "nginx" {<br/>
-&nbsp;&nbsp;name  = "tp-nginx"<br/>
-&nbsp;&nbsp;image = docker_image.nginx.image_id<br/><br/>
+<h3>3.2 Lancer un conteneur Nginx</h3>
+<p>
+Le conteneur est créé à partir de l’image Nginx. Le port interne <code>80</code> correspond au port HTTP
+utilisé par Nginx dans les exemples officiels. La documentation Nginx montre un mapping
+<code>-p 8080:80</code> (host:container) pour rendre l’application accessible sur <code>http://localhost:8080</code> [S4].
+La page Docker Hub de l’image officielle reprend également l’exemple <code>-p 8080:80</code> [S3].
+</p>
 
-&nbsp;&nbsp;rm = true<br/><br/>
+<pre><code>resource "docker_container" "nginx" {
+  name  = "nginx"
+  image = docker_image.nginx.image_id
 
-&nbsp;&nbsp;ports {<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;internal = 80<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;external = 8080<br/>
-&nbsp;&nbsp;}<br/>
-}
-</code>
+  ports {
+    internal = 80
+    external = 8080
+  }
+}</code></pre>
 
-<p>Ce que ça veut dire :</p>
-<ul>
-  <li><code>docker_image</code> : “assure-toi que j’ai cette image en local”</li>
-  <li><code>docker_container</code> : “lance un conteneur avec cette image”</li>
-  <li><code>ports</code> : “rends-le accessible sur <code>http://localhost:8080</code>”</li>
-  <li><code>rm = true</code> : “au moment du <code>tofu destroy</code>, supprime complètement le conteneur”</li>
-</ul>
+<p>
+Le bloc <code>ports</code> reproduit exactement l’équivalent de la commande Docker suivante, documentée dans les exemples :
+</p>
+
+<pre><code>docker run -p 8080:80 nginx</code></pre>
+
+<p>
+Le principe du mapping <code>host:container</code> est décrit explicitement dans la documentation Nginx pour Docker [S4],
+et illustré dans la documentation Docker Hub de l’image officielle [S3].
+</p>
+
+<hr/>
+
+<h2>Étape 4 — Initialiser le projet</h2>
+<p>
+Dans le dossier où se trouve <code>main.tf</code> :
+</p>
+
+<pre><code>tofu init</code></pre>
+
+<p>
+Cette commande télécharge le provider Docker défini dans <code>required_providers</code> [S2].
+</p>
 
 <hr/>
 
 <h2>Étape 5 — Voir le plan</h2>
-<code>tofu plan</code>
+<pre><code>tofu plan</code></pre>
 
-<p>Résultat attendu :</p>
-<code>
-Plan: 2 to add, 0 to change, 0 to destroy.
-</code>
+<p>
+Résultat attendu :
+</p>
+<pre><code>Plan: 2 to add, 0 to change, 0 to destroy.</code></pre>
 
-<p>Erreurs courantes et solutions :</p>
+<h3>Erreurs courantes</h3>
 <ul>
   <li>
-    <strong>Cannot connect to the Docker daemon</strong> :
-    Docker n’est pas démarré (ou Docker Desktop pas lancé). Vérifie avec <code>docker info</code>.
+    <strong>Cannot connect to the Docker daemon</strong> : vérifier le contexte Docker et l’endpoint retourné par
+    <code>docker context inspect</code> [S5], puis adapter la valeur <code>host</code> du provider si nécessaire [S2].
   </li>
   <li>
-    <strong>port is already allocated</strong> :
-    le port 8080 est déjà utilisé. Change <code>external = 8080</code> en <code>8081</code> puis relance <code>tofu plan</code>.
-  </li>
-  <li>
-    <strong>Problème de connexion Docker Desktop</strong> :
-    définis <code>DOCKER_HOST</code> (voir la note dans l’étape 2) puis relance <code>tofu plan</code>.
+    <strong>port is already allocated</strong> : changer <code>external = 8080</code> (par exemple <code>8081</code>), car le port hôte est déjà utilisé.
+    Le principe du mapping de ports est documenté via les exemples Nginx Docker [S4] et Docker Hub [S3].
   </li>
 </ul>
 
 <hr/>
 
-<h2>Étape 6 — Appliquer le plan (créer vraiment le conteneur)</h2>
-<code>tofu apply</code>
+<h2>Étape 6 — Appliquer le plan</h2>
+<pre><code>tofu apply</code></pre>
 
-<p>OpenTofu te demande confirmation :</p>
-<code>Enter a value:</code>
-<p>Tu tapes :</p>
-<code>yes</code>
-
-<p>Validation attendue :</p>
-<code>Apply complete! Resources: 2 added, 0 changed, 0 destroyed.</code>
-
-<p>Vérifie côté Docker :</p>
-<code>docker ps</code>
 <p>
-Tu dois voir un conteneur <code>tp-nginx</code> exposé sur <code>0.0.0.0:8080-&gt;80/tcp</code>.
+OpenTofu demande confirmation. Saisir :
+</p>
+<pre><code>yes</code></pre>
+
+<p>
+Validation attendue :
+</p>
+<pre><code>Apply complete! Resources: 2 added, 0 changed, 0 destroyed.</code></pre>
+
+<p>
+Vérification côté Docker :
+</p>
+<pre><code>docker ps</code></pre>
+
+<p>
+La documentation Docker permet aussi de visualiser précisément le mapping via :
+</p>
+<pre><code>docker container port nginx</code></pre>
+
+<p>
+Cette commande est documentée dans la référence officielle du CLI Docker [S6].
 </p>
 
 <hr/>
 
-<h2>Étape 7 — Tester</h2>
-<p>Dans ton navigateur :</p>
-<a href="http://localhost:8080">http://localhost:8080</a>
-<p>Tu dois voir la page d’accueil Nginx (Welcome to nginx!).</p>
+<h2>Étape 7 — Tester l’accès à Nginx</h2>
 
-<p>Test terminal (optionnel mais pratique) :</p>
-<code>curl -I http://localhost:8080</code>
+<p>
+Dans un navigateur :
+</p>
+<pre><code>http://localhost:8080</code></pre>
+
+<p>
+Tu dois voir la page d’accueil Nginx. Le même résultat est attendu dans les exemples officiels
+avec <code>-p 8080:80</code> [S3][S4].
+</p>
+
+<p>
+Test terminal (optionnel) :
+</p>
+<pre><code>curl -I http://localhost:8080</code></pre>
 
 <hr/>
 
-<h2>Étape 8 — Détruire ce qu’on vient de créer</h2>
+<h2>Étape 8 — Détruire l’infrastructure</h2>
+
 <p>
-L’intérêt de l’IaC : on détruit aussi facilement qu’on crée.
+L’intérêt de l’IaC : supprimer proprement tout ce qui a été créé.
 </p>
-<code>tofu destroy</code>
 
-<p>OpenTofu te demande confirmation :</p>
-<code>
-Do you really want to destroy all resources?<br/>
-There is no undo. Only 'yes' will be accepted to confirm.<br/><br/>
-Enter a value:
-</code>
+<pre><code>tofu destroy</code></pre>
 
-<p>Tu saisis :</p>
-<code>yes</code>
+<p>
+Confirmer avec :
+</p>
+<pre><code>yes</code></pre>
 
-<p>Validation attendue :</p>
-<code>Destroy complete! Resources: 2 destroyed.</code>
+<p>
+Validation attendue :
+</p>
+<pre><code>Destroy complete! Resources: 2 destroyed.</code></pre>
 
-<p>Vérifie :</p>
-<code>docker ps</code>
-<p>Le conteneur <code>tp-nginx</code> ne doit plus être présent.</p>
+<p>
+Vérification :
+</p>
+<pre><code>docker ps</code></pre>
+
+<p>
+Le conteneur <code>nginx</code> ne doit plus être présent.
+</p>
 
 <hr/>
 
 <h2>Conclusion</h2>
 <p>
-Ce TP démontre l’intérêt d’OpenTofu :
-</p>
-<ul>
-  <li>Créer une infra en une commande (<code>tofu apply</code>)</li>
-  <li>La détruire en une commande (<code>tofu destroy</code>)</li>
-  <li>Reproduire la même infra à l’identique à chaque fois</li>
-</ul>
-<p>
-Tu peux refaire <code>tofu apply</code> puis <code>tofu destroy</code> plusieurs fois pour valider la reproductibilité.
+Ce TP démontre comment OpenTofu pilote Docker via le provider <code>kreuzwerker/docker</code> [S2]
+et comment un mapping de ports standard (<code>8080:80</code>) rend un service web accessible localement,
+comme illustré dans les documentations Nginx et Docker Hub [S3][S4].
 </p>
